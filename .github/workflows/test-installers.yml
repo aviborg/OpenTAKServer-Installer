@@ -1,0 +1,208 @@
+name: Test Installer Scripts
+
+on:
+  schedule:
+    # Run nightly at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      os:
+        description: 'Operating system to test (or "all" for all platforms)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - ubuntu
+          - macos
+          - windows
+
+jobs:
+  test-ubuntu:
+    if: github.event_name == 'schedule' || github.event.inputs.os == 'all' || github.event.inputs.os == 'ubuntu'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up test environment
+        run: |
+          # Create test .env file
+          cat > .env << EOF
+          OTS_GITHUB_USER=${{ github.repository_owner }}
+          OTS_DEV_MODE=0
+          OTS_HOME=$HOME/ots_test
+          OTS_BASE=
+          INSTALL_ZEROTIER=0
+          INSTALL_MUMBLE=0
+          POSTGRESQL_PASSWORD=test_password_123
+          EOF
+      
+      - name: Run Ubuntu installer
+        run: |
+          chmod +x ubuntu_installer.sh
+          # Run installer in non-interactive mode by piping 'n' to prompts
+          echo -e "n\nn" | bash ubuntu_installer.sh 2>&1 | tee ~/ots_ubuntu_test.log
+        continue-on-error: true
+      
+      - name: Verify installation
+        run: |
+          # Check if key directories were created
+          test -d "$HOME/ots_test" || exit 1
+          test -d "$HOME/ots_test/ca" || exit 1
+          test -d "$HOME/ots_test/mediamtx" || exit 1
+          
+          # Check if Python venv was created
+          test -d "$HOME/.opentakserver_venv" || exit 1
+          
+          # Check if services are defined
+          test -f "/etc/systemd/system/opentakserver.service" || exit 1
+          test -f "/etc/systemd/system/mediamtx.service" || exit 1
+          
+          echo "✓ Ubuntu installation verification passed"
+      
+      - name: Check service status
+        run: |
+          sudo systemctl status opentakserver --no-pager || true
+          sudo systemctl status mediamtx --no-pager || true
+          sudo systemctl status rabbitmq-server --no-pager || true
+      
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ubuntu-logs
+          path: ~/ots_ubuntu_test.log
+
+  test-macos:
+    if: github.event_name == 'schedule' || github.event.inputs.os == 'all' || github.event.inputs.os == 'macos'
+    runs-on: macos-latest
+    timeout-minutes: 60
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up test environment
+        run: |
+          # Create test .env file
+          cat > .env << EOF
+          OTS_GITHUB_USER=${{ github.repository_owner }}
+          OTS_DEV_MODE=0
+          OTS_HOME=$HOME/ots_test
+          OTS_BASE=
+          INSTALL_ZEROTIER=0
+          INSTALL_MUMBLE=0
+          POSTGRESQL_PASSWORD=test_password_123
+          EOF
+      
+      - name: Run macOS installer
+        run: |
+          chmod +x macos_installer.sh
+          # Run installer in non-interactive mode
+          echo -e "n\nn" | bash macos_installer.sh 2>&1 | tee ~/ots_macos_test.log
+        continue-on-error: true
+      
+      - name: Verify installation
+        run: |
+          # Check if key directories were created
+          test -d "$HOME/ots_test" || exit 1
+          test -d "$HOME/ots_test/ca" || exit 1
+          test -d "$HOME/ots_test/mediamtx" || exit 1
+          
+          # Check if Python venv was created
+          test -d "$HOME/.opentakserver_venv" || exit 1
+          
+          # Check if launchd services are defined
+          test -f "$HOME/Library/LaunchAgents/homebrew.mxcl.mediamtx.plist" || exit 1
+          test -f "$HOME/Library/LaunchAgents/launchd.opentakserver.plist" || exit 1
+          
+          echo "✓ macOS installation verification passed"
+      
+      - name: Check service status
+        run: |
+          launchctl list | grep mediamtx || true
+          launchctl list | grep opentakserver || true
+          brew services list || true
+      
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-logs
+          path: ~/ots_macos_test.log
+
+  test-windows:
+    if: github.event_name == 'schedule' || github.event.inputs.os == 'all' || github.event.inputs.os == 'windows'
+    runs-on: windows-latest
+    timeout-minutes: 60
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up test environment
+        shell: pwsh
+        run: |
+          # Create test .env file
+          @"
+          OTS_GITHUB_USER=${{ github.repository_owner }}
+          OTS_DEV_MODE=0
+          OTS_HOME=$env:USERPROFILE\ots_test
+          OTS_BASE=
+          INSTALL_ZEROTIER=0
+          INSTALL_MUMBLE=0
+          POSTGRESQL_PASSWORD=test_password_123
+          "@ | Out-File -FilePath .env -Encoding utf8
+      
+      - name: Run Windows installer
+        shell: pwsh
+        run: |
+          # Run installer (it will automatically install Chocolatey)
+          .\windows_installer.ps1 2>&1 | Tee-Object -FilePath $env:USERPROFILE\ots_windows_test.log
+        continue-on-error: true
+      
+      - name: Verify installation
+        shell: pwsh
+        run: |
+          # Check if key directories were created
+          if (-not (Test-Path "$env:USERPROFILE\ots_test")) { exit 1 }
+          if (-not (Test-Path "$env:USERPROFILE\ots_test\ca")) { exit 1 }
+          if (-not (Test-Path "$env:USERPROFILE\ots_test\mediamtx")) { exit 1 }
+          
+          # Check if Python venv was created
+          if (-not (Test-Path "$env:USERPROFILE\.opentakserver_venv")) { exit 1 }
+          
+          Write-Host "✓ Windows installation verification passed"
+      
+      - name: Check service status
+        shell: pwsh
+        run: |
+          Get-Service OpenTAKServer -ErrorAction SilentlyContinue | Format-List
+          Get-Service MediaMTX -ErrorAction SilentlyContinue | Format-List
+          Get-Service RabbitMQ -ErrorAction SilentlyContinue | Format-List
+      
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-logs
+          path: ~\ots_windows_test.log
+
+  report:
+    needs: [test-ubuntu, test-macos, test-windows]
+    if: always()
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Report results
+        run: |
+          echo "## Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Platform | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Ubuntu   | ${{ needs.test-ubuntu.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| macOS    | ${{ needs.test-macos.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Windows  | ${{ needs.test-windows.result }} |" >> $GITHUB_STEP_SUMMARY
