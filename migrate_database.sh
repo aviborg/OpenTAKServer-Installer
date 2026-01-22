@@ -8,6 +8,8 @@ fi
 # Set default values for environment variables
 OTS_GITHUB_USER="${OTS_GITHUB_USER:-brian7704}"
 OTS_HOME="${OTS_HOME:-$HOME/ots}"
+# Expand OTS_HOME path (handles $HOME and ~ properly)
+OTS_HOME=$(eval echo "$OTS_HOME")
 
 INSTALLER_DIR=/tmp/ots_installer
 mkdir -p $INSTALLER_DIR

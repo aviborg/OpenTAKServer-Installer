@@ -10,6 +10,8 @@ OTS_GITHUB_USER="${OTS_GITHUB_USER:-brian7704}"
 OTS_DEV_MODE="${OTS_DEV_MODE:-0}"
 OTS_DEV_PATH="${OTS_DEV_PATH:-../OpenTAKServer}"
 OTS_HOME="${OTS_HOME:-$HOME/ots}"
+# Expand OTS_HOME path (handles $HOME and ~ properly)
+OTS_HOME=$(eval echo "$OTS_HOME")
 OTS_BASE="${OTS_BASE:-}"
 
 INSTALLER_DIR=/tmp/ots_installer

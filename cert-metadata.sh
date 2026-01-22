@@ -18,6 +18,8 @@ PASS=${PASS:-$CAPASS}
 
 ## subdirectory to put all the actual certs and keys in
 OTS_HOME="${OTS_HOME:-$HOME/ots}"
+# Expand OTS_HOME path (handles $HOME and ~ properly)
+OTS_HOME=$(eval echo "$OTS_HOME")
 DIR="${OTS_HOME}"/ca/
 
 ##### don't edit below this line #####
