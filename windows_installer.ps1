@@ -58,9 +58,11 @@ choco install openssl rabbitmq nginx sed -y --no-progress
 Import-Module $env:ChocolateyInstall\helpers\chocolateyProfile.psm1
 refreshenv
 
+Write-Host "Setup pyython virtual environment..." -ForegroundColor Green -BackgroundColor Black
 Set-Location -Path $OTS_HOME
 python -m venv .venv
 .\.venv\Scripts\activate
+python -m pip install --upgrade pip
 pip install https://github.com/$env:OTS_GITHUB_USER/OpenTAKServer-Installer/raw/master/unishox2_py3-1.0.0-cp312-cp312-win_amd64.whl
 
 if ($env:OTS_DEV_MODE -eq "1" -and (Test-Path -Path $env:OTS_DEV_PATH)) {
@@ -72,11 +74,12 @@ if ($env:OTS_DEV_MODE -eq "1" -and (Test-Path -Path $env:OTS_DEV_PATH)) {
 
 Write-Host "Initializing Database..." -ForegroundColor Green -BackgroundColor Black
 Set-Location -Path $OTS_HOME
-flask.exe db upgrade
+flask.exe --app db upgrade
 Write-Host "Finished initializing database!" -ForegroundColor Green -BackgroundColor Black
 
 Write-Host "Creating Certificate Authority..." -ForegroundColor Green -BackgroundColor Black
-flask.exe ots create-ca
+Set-Location -Path $OTS_HOME
+flask.exe --app ots create-ca
 Write-Host "Finished creating the certificate authority!" -ForegroundColor Green -BackgroundColor Black
 
 Write-Host "Installing MediaMTX.." -ForegroundColor Green -BackgroundColor Black
