@@ -58,10 +58,31 @@ choco install openssl rabbitmq nginx sed -y --no-progress
 Import-Module $env:ChocolateyInstall\helpers\chocolateyProfile.psm1
 refreshenv
 
-Write-Host "Setup pyython virtual environment..." -ForegroundColor Green -BackgroundColor Black
+Write-Host "Setup python virtual environment..." -ForegroundColor Green -BackgroundColor Black
+
+Write-Host "Creating virtual environment..." -ForegroundColor Green
 Set-Location -Path $OTS_HOME
-python -m venv .venv
-.\.venv\Scripts\activate
+python -m venv .opentakserver_venv
+
+# Activate properly
+. "$OTS_HOME\.opentakserver_venv\Scripts\Activate.ps1"
+
+# Verify interpreter (hard fail if wrong)
+$pyExe = python -c "import sys; print(sys.executable)"
+$pyVer = python -c "import sys; print(sys.version.split()[0])"
+
+Write-Host "Using Python executable: $pyExe"
+Write-Host "Using Python version:    $pyVer"
+
+if ($pyExe -notmatch "\\.opentakserver_venv\\Scripts\\python.exe") {
+    Write-Error "Virtual environment not active!"
+    exit 1
+}
+
+if ($pyVer -ne "3.12.10") {
+    Write-Error "Wrong Python version!"
+    exit 1
+}
 python -m pip install --upgrade pip
 pip install https://github.com/$env:OTS_GITHUB_USER/OpenTAKServer-Installer/raw/master/unishox2_py3-1.0.0-cp312-cp312-win_amd64.whl
 
@@ -113,9 +134,9 @@ sed -i s/OTS_BASE/$env:OTS_BASE/g $OTS_HOME\mediamtx\mediamtx.yml
 Write-Host "Creating a service for OpenTAKServer..." -ForegroundColor Green -BackgroundColor Black
 if ($env:CI -eq "true") {
     Write-Host "CI detected – installing service as LocalSystem" -ForegroundColor Yellow
-    nssm install OpenTAKServer $OTS_HOME\.venv\Scripts\opentakserver.exe
+    nssm install OpenTAKServer $OTS_HOME\.opentakserver_venv\Scripts\opentakserver.exe
 } else {
-    nssm install OpenTAKServer $OTS_HOME\.venv\Scripts\opentakserver.exe
+    nssm install OpenTAKServer $OTS_HOME\.opentakserver_venv\Scripts\opentakserver.exe
     nssm set OpenTAKServer ObjectName "$Env:UserDomain\$Env:UserName" $password
 }
 nssm set OpenTAKServer AppStdout $OTS_HOME\service_stdout.log
