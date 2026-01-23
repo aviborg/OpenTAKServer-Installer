@@ -71,12 +71,11 @@ if ($env:OTS_DEV_MODE -eq "1" -and (Test-Path -Path $env:OTS_DEV_PATH)) {
 }
 
 Write-Host "Initializing Database..." -ForegroundColor Green -BackgroundColor Black
-flask.exe db upgrade
 Set-Location -Path $OTS_HOME
+flask.exe db upgrade
 Write-Host "Finished initializing database!" -ForegroundColor Green -BackgroundColor Black
 
 Write-Host "Creating Certificate Authority..." -ForegroundColor Green -BackgroundColor Black
-Set-Location -Path $OTS_HOME
 flask.exe ots create-ca
 Write-Host "Finished creating the certificate authority!" -ForegroundColor Green -BackgroundColor Black
 
