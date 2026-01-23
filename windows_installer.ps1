@@ -1,5 +1,6 @@
 $INSTALLER_DIR = $pwd.Path
-
+# Disable all PowerShell progress bars (CI-safe)
+$ProgressPreference = 'SilentlyContinue'
 
 # Load .env file if it exists
 if (Test-Path -Path ".env") {
@@ -45,10 +46,11 @@ if (-Not (Test-Path -Path $OTS_HOME)) {
 Write-Host "Installing Chocolatey..." -ForegroundColor Green -BackgroundColor Black
 # https://chocolatey.org/install#individual
 Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+choco feature disable -n showDownloadProgress
 
 Write-Host "Installing prerequisites..." -ForegroundColor Green -BackgroundColor Black
-choco install python3 --version 3.12.10 -y
-choco install openssl rabbitmq nginx sed -y
+choco install python3 --version 3.12.10 -y --no-progress 
+choco install openssl rabbitmq nginx sed -y --no-progress 
 
 # Need this so the openssl pkcs12 -legacy option works
 [Environment]::SetEnvironmentVariable("OPENSSL_MODULES", "C:\Program Files\OpenSSL-Win64\bin", "Machine")
@@ -88,9 +90,15 @@ Remove-Item $OTS_HOME\mediamtx\mediamtx.yml -Force
 Invoke-WebRequest https://raw.githubusercontent.com/$env:OTS_GITHUB_USER/OpenTAKServer-Installer/master/mediamtx.yml -OutFile $OTS_HOME\mediamtx\mediamtx.yml
 
 Write-Host "Creating a service for MediaMTX..." -ForegroundColor Green -BackgroundColor Black
-$password = Read-Host "Please enter your computer account's password"
-nssm install MediaMTX $OTS_HOME\mediamtx\mediamtx.exe
-nssm set MediaMTX ObjectName $Env:UserDomain\$Env:UserName $password
+if ($env:CI -eq "true") {
+    Write-Host "CI detected – skipping service account password prompt" -ForegroundColor Yellow
+    # Install service to run as LocalSystem in CI
+    nssm install MediaMTX $OTS_HOME\mediamtx\mediamtx.exe
+} else {
+    $password = Read-Host "Please enter your computer account's password"
+    nssm install MediaMTX $OTS_HOME\mediamtx\mediamtx.exe
+    nssm set MediaMTX ObjectName "$Env:UserDomain\$Env:UserName" $password
+}
 nssm set MediaMTX AppStdout $OTS_HOME\mediamtx\service_stdout.log
 nssm set MediaMTX AppStderr $OTS_HOME\mediamtx\service_stderr.log
 
@@ -101,14 +109,24 @@ sed -i s/OTS_BASE/$env:OTS_BASE/g $OTS_HOME\mediamtx\mediamtx.yml
 
 # Make a new service
 Write-Host "Creating a service for OpenTAKServer..." -ForegroundColor Green -BackgroundColor Black
-nssm install OpenTAKServer $OTS_HOME\.venv\Scripts\opentakserver.exe
-nssm set OpenTAKServer ObjectName $Env:UserDomain\$Env:UserName $password
+if ($env:CI -eq "true") {
+    Write-Host "CI detected – installing service as LocalSystem" -ForegroundColor Yellow
+    nssm install OpenTAKServer $OTS_HOME\.venv\Scripts\opentakserver.exe
+} else {
+    nssm install OpenTAKServer $OTS_HOME\.venv\Scripts\opentakserver.exe
+    nssm set OpenTAKServer ObjectName "$Env:UserDomain\$Env:UserName" $password
+}
 nssm set OpenTAKServer AppStdout $OTS_HOME\service_stdout.log
 nssm set OpenTAKServer AppStderr $OTS_HOME\service_stderr.log
-nssm start OpenTAKServer
 
-Write-Host "Starting MediaMTX..." -ForegroundColor Green -BackgroundColor Black
-nssm start MediaMTX
+if ($env:CI -ne "true") {
+    Write-Host "OpenTAKServer..." -ForegroundColor Green -BackgroundColor Black
+    nssm start OpenTAKServer
+    Write-Host "Starting MediaMTX..." -ForegroundColor Green -BackgroundColor Black
+    nssm start MediaMTX
+} else {
+    Write-Host "CI detected – skipping service startup" -ForegroundColor Yellow
+}
 
 Write-Host "Configuring Nginx..." -ForegroundColor Green -BackgroundColor Black
 
@@ -136,9 +154,13 @@ Invoke-WebRequest https://raw.githubusercontent.com/$env:OTS_GITHUB_USER/OpenTAK
 Write-Host "Configuring RabbitMQ..." -ForegroundColor Green -BackgroundColor Black
 Invoke-WebRequest https://raw.githubusercontent.com/$env:OTS_GITHUB_USER/OpenTAKServer-Installer/master/nginx_configs/rabbitmq -OutFile c:\tools\nginx-$version\conf\ots\streams\rabbitmq.conf
 Set-Location -Path "C:\Program Files\RabbitMQ*\rabbitmq_server*\sbin"
-.\rabbitmq-plugins.bat enable rabbitmq_mqtt
-.\rabbitmq-plugins.bat enable rabbitmq_auth_backend_http
-nssm restart rabbitmq
+if ($env:CI -ne "true") {
+    .\rabbitmq-plugins.bat enable rabbitmq_mqtt
+    .\rabbitmq-plugins.bat enable rabbitmq_auth_backend_http
+    nssm restart rabbitmq
+} else {
+    Write-Host "CI detected – skipping service startup" -ForegroundColor Yellow
+}
 
 # Configure nginx
 sed -i s/NGINX_VERSION/$version/g c:\tools\nginx-$version\conf\nginx.conf
@@ -162,7 +184,11 @@ sed -i s/SERVER_KEY_FILE/$OTS_HOME\\ca\\certs\\opentakserver\\opentakserver.nopa
 
 Set-Location -Path $INSTALLER_DIR
 
-nssm restart nginx
+if ($env:CI -ne "true") {
+    nssm restart nginx
+} else {
+    Write-Host "CI detected – skipping service startup" -ForegroundColor Yellow
+}
 
 Write-Host "Installing OpenTAKServer-UI..." -ForegroundColor Green -BackgroundColor Black
 if (-Not (Test-Path -Path c:\tools\nginx-$version\html\opentakserver))  {
