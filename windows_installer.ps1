@@ -100,13 +100,32 @@ Write-Host "Python being used:"
 where python
 python -c "import sys; print(sys.executable)"
 
+if ($env:OTS_DEV_MODE -eq "1" -and (Test-Path $env:OTS_DEV_PATH)) {
+    Set-Location (Join-Path $env:OTS_DEV_PATH "opentakserver")
+} else {
+    # Find the opentakserver package inside the venv site-packages
+    $sitePackages = Get-ChildItem "$env:OTS_HOME\.opentakserver_venv\Lib" -Directory |
+                    Where-Object { $_.Name -like "python3*" } |
+                    Select-Object -First 1
+    if (-not $sitePackages) {
+        Write-Error "Could not find python3.* directory in venv Lib"
+        exit 1
+    }
+    $target = Join-Path $sitePackages.FullName "site-packages\opentakserver"
+    if (-not (Test-Path $target)) {
+        Write-Error "Could not find opentakserver package at $target"
+        exit 1
+    }
+    Set-Location $target
+}
+
 Write-Host "Initializing Database..." -ForegroundColor Green -BackgroundColor Black
-python -m opentakserver db upgrade
+flask db upgrade
 Write-Host "Finished initializing database!" -ForegroundColor Green -BackgroundColor Black
 
 Write-Host "Creating Certificate Authority..." -ForegroundColor Green -BackgroundColor Black
-Set-Location -Path $OTS_HOME
-python -m opentakserver create-ca
+New-Item -ItemType Directory -Path $OTS_HOME\ca
+flask ots create-ca
 Write-Host "Finished creating the certificate authority!" -ForegroundColor Green -BackgroundColor Black
 
 Write-Host "Installing MediaMTX.." -ForegroundColor Green -BackgroundColor Black
