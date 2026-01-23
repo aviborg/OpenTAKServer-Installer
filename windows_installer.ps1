@@ -95,12 +95,14 @@ if ($env:OTS_DEV_MODE -eq "1" -and (Test-Path -Path $env:OTS_DEV_PATH)) {
 
 Write-Host "Initializing Database..." -ForegroundColor Green -BackgroundColor Black
 Set-Location -Path $OTS_HOME
-flask.exe --app db upgrade
+flask --help
+flask --app opentakserver --help
+flask --app db upgrade
 Write-Host "Finished initializing database!" -ForegroundColor Green -BackgroundColor Black
 
 Write-Host "Creating Certificate Authority..." -ForegroundColor Green -BackgroundColor Black
 Set-Location -Path $OTS_HOME
-flask.exe --app ots create-ca
+flask --app ots create-ca
 Write-Host "Finished creating the certificate authority!" -ForegroundColor Green -BackgroundColor Black
 
 Write-Host "Installing MediaMTX.." -ForegroundColor Green -BackgroundColor Black
