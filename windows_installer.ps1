@@ -102,6 +102,7 @@ python -c "import sys; print(sys.executable)"
 
 $target = "$env:OTS_HOME\.opentakserver_venv\Lib\site-packages\opentakserver"
 Set-Location $target
+Get-ChildItem
 
 Write-Host "Initializing Database..." -ForegroundColor Green -BackgroundColor Black
 flask db upgrade
