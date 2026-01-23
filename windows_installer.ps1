@@ -104,6 +104,10 @@ $target = "$env:OTS_HOME\.opentakserver_venv\Lib\site-packages\opentakserver"
 Set-Location $target
 Get-ChildItem
 
+Write-Host "Initializing OpenTAKServer config..." -ForegroundColor Green -BackgroundColor Black
+flask ots generate-config
+Write-Host "Finished initializing database!" -ForegroundColor Green -BackgroundColor Black
+
 Write-Host "Initializing Database..." -ForegroundColor Green -BackgroundColor Black
 flask db upgrade
 Write-Host "Finished initializing database!" -ForegroundColor Green -BackgroundColor Black
