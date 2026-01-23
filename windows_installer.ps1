@@ -93,16 +93,20 @@ if ($env:OTS_DEV_MODE -eq "1" -and (Test-Path -Path $env:OTS_DEV_PATH)) {
     pip install opentakserver
 }
 
+Write-Host "Flask being used:"
+where flask
+flask --version
+Write-Host "Python being used:"
+where python
+python -c "import sys; print(sys.executable)"
+
 Write-Host "Initializing Database..." -ForegroundColor Green -BackgroundColor Black
-Set-Location -Path $OTS_HOME
-flask --help
-flask --app opentakserver --help
-flask --app db upgrade
+flask --app opentakserver db upgrade
 Write-Host "Finished initializing database!" -ForegroundColor Green -BackgroundColor Black
 
 Write-Host "Creating Certificate Authority..." -ForegroundColor Green -BackgroundColor Black
 Set-Location -Path $OTS_HOME
-flask --app ots create-ca
+flask --app opentakserver create-ca
 Write-Host "Finished creating the certificate authority!" -ForegroundColor Green -BackgroundColor Black
 
 Write-Host "Installing MediaMTX.." -ForegroundColor Green -BackgroundColor Black
