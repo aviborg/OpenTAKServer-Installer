@@ -101,12 +101,12 @@ where python
 python -c "import sys; print(sys.executable)"
 
 Write-Host "Initializing Database..." -ForegroundColor Green -BackgroundColor Black
-flask --app opentakserver db upgrade
+python -m opentakserver db upgrade
 Write-Host "Finished initializing database!" -ForegroundColor Green -BackgroundColor Black
 
 Write-Host "Creating Certificate Authority..." -ForegroundColor Green -BackgroundColor Black
 Set-Location -Path $OTS_HOME
-flask --app opentakserver create-ca
+python -m opentakserver create-ca
 Write-Host "Finished creating the certificate authority!" -ForegroundColor Green -BackgroundColor Black
 
 Write-Host "Installing MediaMTX.." -ForegroundColor Green -BackgroundColor Black
